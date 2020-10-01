@@ -57,7 +57,7 @@ static void internal_send_meta(ndi_recv_context_t ctx, char * data) {
 	char * buffer = malloc(len);
 
 	internal_write_u16(buffer, 0, 0x8001);
-	internal_write_u16(buffer, 2, NDI_DATA_TYPE_CHUNK);
+	internal_write_u16(buffer, 2, NDI_DATA_TYPE_METADATA);
 	internal_write_u32(buffer, 4, 8);
 	internal_write_u32(buffer, 8, payload_len);
 	internal_write_u64(buffer, 12, 0);
@@ -81,7 +81,11 @@ int ndi_recv_connect(ndi_recv_context_t ctx, const char * host, unsigned short p
 	memset(&hints, 0, sizeof(hints));
 
 	char port_str[10];
+#ifdef _WIN32
+	_itoa_s(port, port_str, sizeof(port_str), 10);
+#else
 	sprintf(port_str, "%d", port);
+#endif
 
 	if ((ret = getaddrinfo(host, port_str, &hints, &res)) != 0) {
 		return -1;
@@ -128,7 +132,7 @@ unsigned long long internal_read_u64(void * buffer, int offset) {
 	return data[0] | (data[1] << 8) | (data[2] << 16) | (data[3] << 24) | ((unsigned long long)data[4] << 32) | ((unsigned long long)data[5] << 40) | ((unsigned long long)data[6] << 48) | ((unsigned long long)data[7] << 56);
 }
 
-int ndi_recv_capture(ndi_recv_context_t ctx, ndi_packet_video_t * video, ndi_packet_audio_t * audio, ndi_packet_chunk_t * chunk, int timeout_ms) {
+int ndi_recv_capture(ndi_recv_context_t ctx, ndi_packet_video_t * video, ndi_packet_audio_t * audio, ndi_packet_metadata_t * meta, int timeout_ms) {
 
 	internal_recv_context_t * internal = ctx;
 
@@ -212,16 +216,16 @@ int ndi_recv_capture(ndi_recv_context_t ctx, ndi_packet_video_t * video, ndi_pac
 		audio->size = payload_len;
 		memcpy(audio->data, data + header_len, payload_len);
 	}
-	if (packet_type == NDI_DATA_TYPE_CHUNK && chunk != NULL) {
+	if (packet_type == NDI_DATA_TYPE_METADATA && meta != NULL) {
 		if (version <= 3)
 			internal_unscramble_type1(data, data_len, data_len);
 		else
 			internal_unscramble_type2(data, data_len, data_len);
 
-		chunk->timecode = internal_read_u64(data, 0);
-		chunk->data = malloc(payload_len);
-		chunk->size = payload_len;
-		memcpy(chunk->data, data + header_len, payload_len);
+		meta->timecode = internal_read_u64(data, 0);
+		meta->data = malloc(payload_len);
+		meta->size = payload_len;
+		memcpy(meta->data, data + header_len, payload_len);
 	}
 
 	free(data);
@@ -240,7 +244,7 @@ void ndi_recv_free_audio(ndi_packet_audio_t * audio) {
 	free(audio->data);
 }
 
-void ndi_recv_free_meta(ndi_packet_chunk_t * meta) {
+void ndi_recv_free_metadata(ndi_packet_metadata_t * meta) {
 	free(meta->data);
 }
 
