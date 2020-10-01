@@ -1,0 +1,14 @@
+# CMake
+CMakeCache.txt
+CMakeFiles/
+Makefile
+cmake_install.cmake
+
+# Build files
+*.a
+*.so
+*.lib
+*.dll
+
+# MacOS
+.DS_Store
