@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <chrono>
 #include <ndi.h>
 
@@ -11,7 +12,7 @@ int main(int argc, char* argv[]) {
 
 	ndi_codec_context_t codec_ctx = ndi_codec_create();
 
-	for (const auto start = std::chrono::high_resolution_clock::now(); std::chrono::high_resolution_clock::now() - start < std::chrono::minutes(1); ) {
+    for (const std::chrono::high_resolution_clock::time_point start = std::chrono::high_resolution_clock::now(); std::chrono::high_resolution_clock::now() - start < std::chrono::minutes(1); ) {
 
 		ndi_packet_video_t video;
 		ndi_packet_audio_t audio;
