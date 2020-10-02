@@ -1,0 +1,11 @@
+# MSVC
+.vs/
+
+*.vcxproj
+*.vcxproj.*
+*.sln
+*.obj
+*.pdb
+*.tlog
+
+[Oo]bj/
