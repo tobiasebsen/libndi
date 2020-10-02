@@ -38,7 +38,7 @@ static void internal_write_u32(void * buffer, int offset, unsigned int v) {
 	data[0] = v & 0xFF;
 	data[1] = (v >> 8) & 0xFF;
 	data[2] = (v >> 16) & 0xFF;
-	data[3] = (v >> 24) && 0xFF;
+	data[3] = (v >> 24) & 0xFF;
 }
 
 static void internal_write_u64(void * buffer, int offset, unsigned long long v) {
@@ -54,7 +54,7 @@ static void internal_send_meta(ndi_recv_context_t ctx, char * data) {
 	internal_recv_context_t * internal = ctx;
 	int payload_len = strlen(data) + 1;
 	int len = 20 + payload_len;
-	char * buffer = malloc(len);
+	unsigned char * buffer = malloc(len);
 
 	internal_write_u16(buffer, 0, 0x8001);
 	internal_write_u16(buffer, 2, NDI_DATA_TYPE_METADATA);

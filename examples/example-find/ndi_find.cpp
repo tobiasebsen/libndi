@@ -9,7 +9,7 @@ int main(int argc, char* argv[]) {
 	ndi_source_t  * sources = NULL;
 	int nb_sources = 0;
 	printf("Looking for sources ...\n");
-	for (const auto start = std::chrono::high_resolution_clock::now(); std::chrono::high_resolution_clock::now() - start < std::chrono::seconds(10);) {
+	for (const high_resolution_clock::time_point start = std::chrono::high_resolution_clock::now(); std::chrono::high_resolution_clock::now() - start < std::chrono::seconds(10);) {
 		sources = ndi_find_sources(find_ctx, 5000, &nb_sources);
 		printf("Found %d source(s)\n", nb_sources);
 		for (int i = 0; i < nb_sources; i++) {
