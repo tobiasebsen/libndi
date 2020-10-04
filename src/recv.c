@@ -75,6 +75,11 @@ int ndi_recv_connect(ndi_recv_context_t ctx, const char * host, unsigned short p
 
 	internal_recv_context_t * internal = ctx;
 
+#ifdef _WIN32
+	WSADATA wsadata;
+	WSAStartup(MAKEWORD(2, 2), &wsadata);
+#endif
+
 	int ret;
 	struct addrinfo hints, *res;
 

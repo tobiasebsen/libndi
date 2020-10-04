@@ -6,7 +6,8 @@
 int main(int argc, char* argv[]) {
 
 	ndi_recv_context_t recv_ctx = ndi_recv_create();
-	int ret = ndi_recv_connect(recv_ctx, argv[1], atoi(argv[2]));
+	//int ret = ndi_recv_connect(recv_ctx, argv[1], atoi(argv[2]));
+	int ret = ndi_recv_connect(recv_ctx, "192.168.0.32", 5961);
 	if (ret < 0)
 		return -1;
 
