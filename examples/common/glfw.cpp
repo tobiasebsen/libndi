@@ -89,6 +89,11 @@ int loop_glfw() {
 	return 1;
 }
 
+void size_glfw(int window_index, int * width, int * height) {
+
+	glfwGetWindowSize(windows[window_index].window, width, height);
+}
+
 void redraw_glfw(int window_index) {
 	glfwSwapBuffers(windows[window_index].window);
 }

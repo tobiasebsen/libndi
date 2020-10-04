@@ -36,6 +36,13 @@ int window_egl(int screen_index, int width, int height) {
 	return -1;
 }
 
+int loop_egl() {
+	return 1;
+}
+
+void size_egl(int window_index, int * width, int * height) {
+}
+
 void redraw_egl(int window_index) {
 	EGL_WINDOW_T * window = &windows[window_index];
 	eglSwapBuffers(window->display, window->surface);

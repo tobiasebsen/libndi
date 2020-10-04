@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#include <GL/glew.h>
 #include "../common/ogl.h"
 #include "yuv.h"
 

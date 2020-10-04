@@ -49,7 +49,6 @@ int main(int argc, char* argv[]) {
 	}
 
 	printf("Found source: %s\n", sources[0].name);
-	//glfwSetWindowTitle(window, sources[0].name);
 
 	ndi_recv_context_t recv_ctx = ndi_recv_create();
 	int ret = ndi_recv_connect(recv_ctx, sources[0].ip, sources[0].port);
@@ -60,7 +59,10 @@ int main(int argc, char* argv[]) {
 
 	while (loop_ogl()) {
 
-		glViewport(0, 0, 640, 480);
+		int width, height;
+		size_ogl(0, &width, &height);
+
+		glViewport(0, 0, width, height);
 		glClear(GL_COLOR_BUFFER_BIT);
 		glLoadIdentity();
 
