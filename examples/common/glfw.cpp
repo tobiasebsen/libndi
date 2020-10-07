@@ -1,3 +1,4 @@
+#ifndef __arm__
 #include <stdio.h>
 #include <memory>
 #include <GLFW/glfw3.h>
@@ -107,3 +108,5 @@ void exit_glfw() {
 
 	glfwTerminate();
 }
+
+#endif // __arm__

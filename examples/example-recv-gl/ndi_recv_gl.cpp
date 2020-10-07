@@ -6,6 +6,7 @@
 #include "../common/ogl.h"
 #include "../common/yuv.h"
 
+
 int main(int argc, char* argv[]) {
 
 	if (init_ogl() <= 0)
