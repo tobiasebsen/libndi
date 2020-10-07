@@ -10,7 +10,7 @@ typedef struct {
 	char host[256];
 	char ip[16];
 	unsigned short port;
-	struct internal_source_t * next;
+	struct internal_service_t * next;
 } internal_service_t;
 
 typedef struct {
