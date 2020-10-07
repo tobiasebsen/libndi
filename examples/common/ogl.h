@@ -1,6 +1,7 @@
 #pragma once
 
 #ifdef __arm__
+#include "GLES/gl.h"
 #include "GLES2/gl2.h"
 #else
 #include <GL/glew.h>

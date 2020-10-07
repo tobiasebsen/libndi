@@ -1,6 +1,5 @@
-#include <EGL/egl.h>
-
 #ifdef __arm__
+#include <EGL/egl.h>
 
 typedef struct {
 	int width;
@@ -51,4 +50,4 @@ void redraw_egl(int window_index) {
 void exit_egl() {
 }
 
-#endif
+#endif // __arm__

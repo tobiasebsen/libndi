@@ -10,6 +10,9 @@ link_directories(
 )
 link_libraries(
 	libndi
+	avcodec
+	avformat
+	avutil
 )
 
 add_executable(example-recv

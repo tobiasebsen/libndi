@@ -5,13 +5,10 @@
 
 int main(int argc, char* argv[]) {
 
-	ndi_recv_context_t recv_ctx = ndi_recv_create();
-	//int ret = ndi_recv_connect(recv_ctx, argv[1], atoi(argv[2]));
-	int ret = ndi_recv_connect(recv_ctx, "192.168.0.32", 5961);
-	if (ret < 0)
-		return -1;
-
-	ndi_codec_context_t codec_ctx = ndi_codec_create();
+    ndi_recv_context_t recv_ctx = ndi_recv_create();
+    int ret = ndi_recv_connect(recv_ctx, argv[1], atoi(argv[2]));
+    if (ret < 0)
+        return -1;
 
     for (const std::chrono::high_resolution_clock::time_point start = std::chrono::high_resolution_clock::now(); std::chrono::high_resolution_clock::now() - start < std::chrono::minutes(1); ) {
 
