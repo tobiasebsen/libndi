@@ -148,6 +148,13 @@ static void internal_recv(int socket, char * buf, int len) {
 	}
 }
 
+static void internal_unscramble(int type2, unsigned char *buf, int len, unsigned int seed) {
+	if (!type2)
+		internal_unscramble_type1(buf, len, seed);
+	else
+		internal_unscramble_type2(buf, len, seed);
+}
+
 int ndi_recv_wait(ndi_recv_context_t ctx, int timeout_ms) {
 
 	internal_recv_context_t * internal = ctx;
@@ -186,10 +193,7 @@ int ndi_recv_capture(ndi_recv_context_t ctx, ndi_packet_video_t * video, ndi_pac
 	status = ioctl(internal->socket_fd, FIONREAD, &available);
 #endif
 
-	if (status != 0)
-		return -1;
-
-	if (available < 12)
+	if (status != 0 || available < 12)
 		return -1;
 
 	char header[12];
@@ -209,11 +213,7 @@ int ndi_recv_capture(ndi_recv_context_t ctx, ndi_packet_video_t * video, ndi_pac
 
 		unsigned char * info = malloc(info_len);
 		internal_recv(internal->socket_fd, info, info_len);
-
-		if (version <= 2)
-			internal_unscramble_type1(info, info_len, seed);
-		else
-			internal_unscramble_type2(info, info_len, seed);
+		internal_unscramble(version > 2, info, info_len, seed);
 
 		video->fourcc = internal_read_u32(info, 0);
 		video->width = internal_read_u32(info, 4);
@@ -223,17 +223,14 @@ int ndi_recv_capture(ndi_recv_context_t ctx, ndi_packet_video_t * video, ndi_pac
 		video->size = data_len;
 		video->data = malloc(data_len);
 		internal_recv(internal->socket_fd, video->data, data_len);
+
 		free(info);
 	}
 	if (packet_type == NDI_DATA_TYPE_AUDIO && audio) {
 
 		unsigned char * info = malloc(info_len);
 		internal_recv(internal->socket_fd, info, info_len);
-
-		if (version <= 2)
-			internal_unscramble_type1(info, info_len, seed);
-		else
-			internal_unscramble_type2(info, info_len, seed);
+		internal_unscramble(version > 2, info, info_len, seed);
 
 		audio->fourcc = internal_read_u32(info, 0);
 		audio->num_samples = internal_read_u32(info, 4);
@@ -242,6 +239,7 @@ int ndi_recv_capture(ndi_recv_context_t ctx, ndi_packet_video_t * video, ndi_pac
 		audio->size = data_len;
 		audio->data = malloc(data_len);
 		internal_recv(internal->socket_fd, audio->data, data_len);
+
 		free(info);
 	}
 	if (packet_type == NDI_DATA_TYPE_METADATA && meta != NULL) {
@@ -249,16 +247,13 @@ int ndi_recv_capture(ndi_recv_context_t ctx, ndi_packet_video_t * video, ndi_pac
 		int chunk_len = info_len + data_len;
 		unsigned char * info = malloc(chunk_len);
 		internal_recv(internal->socket_fd, info, chunk_len);
-
-		if (version <= 3)
-			internal_unscramble_type1(info, chunk_len, seed);
-		else
-			internal_unscramble_type2(info, chunk_len, seed);
+		internal_unscramble(version > 3, info, chunk_len, seed);
 
 		meta->timecode = internal_read_u64(info, 0);
 		meta->data = malloc(data_len);
 		meta->size = data_len;
 		memcpy(meta->data, info + info_len, data_len);
+
 		free(info);
 	}
 
