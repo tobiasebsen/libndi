@@ -15,9 +15,17 @@
 #include <unistd.h>
 #endif
 
-void internal_scramble_type1(unsigned char *buf, int len, unsigned int seed);
-void internal_unscramble_type1(unsigned char *buf, int len, unsigned int seed);
-void internal_unscramble_type2(unsigned char *buf, int len, unsigned int seed);
+#if defined _WIN32
+#if defined _WIN64
+const char * _platformName = "WIN64";
+#else
+const char * _platformName = "WIN32";
+#endif
+#elif defined __linux__
+const char * _platformName = "LINUX";
+#else
+const char * _platformName = "UNKNOWN";
+#endif
 
 typedef struct {
 	int socket_fd;
@@ -26,7 +34,9 @@ typedef struct {
 
 
 ndi_recv_context_t ndi_recv_create() {
-	return malloc(sizeof(internal_recv_context_t));
+	internal_recv_context_t * ctx = malloc(sizeof(internal_recv_context_t));
+	memset(ctx, 0, sizeof(internal_recv_context_t));
+	return ctx;
 }
 
 static void internal_write_u16(void * buffer, int offset, unsigned short v) {
@@ -54,23 +64,28 @@ static void internal_write_u64(void * buffer, int offset, unsigned long long v) 
 static void internal_send_meta(ndi_recv_context_t ctx, char * data) {
 	
 	internal_recv_context_t * internal = ctx;
-	int payload_len = strlen(data) + 1;
-	int len = 20 + payload_len;
+	int data_len = strlen(data) + 1;
+	int len = 20 + data_len;
 	unsigned char * buffer = malloc(len);
 
 	internal_write_u16(buffer, 0, 0x8001);
 	internal_write_u16(buffer, 2, NDI_DATA_TYPE_METADATA);
-	internal_write_u32(buffer, 4, 8);
-	internal_write_u32(buffer, 8, payload_len);
+	internal_write_u32(buffer, 4, 8); // info length
+	internal_write_u32(buffer, 8, data_len);
 	internal_write_u64(buffer, 12, 0);
 
-	memcpy(buffer + 20, data, payload_len);
+	memcpy(buffer + 20, data, data_len);
 
-	internal_scramble_type1(buffer + 12, 8 + payload_len, 8 + payload_len);
+	ndi_scramble_type1(buffer + 12, 8 + data_len, 8 + data_len);
 
 	send(internal->socket_fd, buffer, len, 0);
 
+cleanup:
 	free(buffer);
+}
+
+void ndi_recv_send_metadata(ndi_recv_context_t ctx, ndi_packet_metadata_t * meta) {
+	internal_send_meta(ctx, meta->data);
 }
 
 int ndi_recv_connect(ndi_recv_context_t ctx, const char * host, unsigned short port) {
@@ -82,11 +97,6 @@ int ndi_recv_connect(ndi_recv_context_t ctx, const char * host, unsigned short p
 	WSAStartup(MAKEWORD(2, 2), &wsadata);
 #endif
 
-	int ret;
-	struct addrinfo hints, *res;
-
-	memset(&hints, 0, sizeof(hints));
-
 	char port_str[10];
 #ifdef _WIN32
 	_itoa_s(port, port_str, sizeof(port_str), 10);
@@ -94,6 +104,9 @@ int ndi_recv_connect(ndi_recv_context_t ctx, const char * host, unsigned short p
 	sprintf(port_str, "%d", port);
 #endif
 
+	int ret;
+	struct addrinfo hints, *res;
+	memset(&hints, 0, sizeof(hints));
 	if ((ret = getaddrinfo(host, port_str, &hints, &res)) != 0) {
 		return -1;
 	}
@@ -112,11 +125,43 @@ int ndi_recv_connect(ndi_recv_context_t ctx, const char * host, unsigned short p
 
 	freeaddrinfo(res);
 
-	internal_send_meta(ctx, "<ndi_version text=\"3\" video=\"4\" audio=\"3\" sdk=\"3.5.1\" platform=\"LINUX\"/>");
-	internal_send_meta(ctx, "<ndi_video quality=\"high\"/>");
-	internal_send_meta(ctx, "<ndi_enabled_streams video=\"true\" audio=\"true\" text=\"true\"/>");
+	if (!internal->socket_fd)
+		return -1;
+
+	char meta[100];
+
+	sprintf(meta, "<ndi_version text=\"3\" video=\"4\" audio=\"3\" sdk=\"4.5.0\" platform=\"%s\"/>", _platformName);
+	internal_send_meta(ctx, meta);
+
+	sprintf(meta, "<ndi_video quality=\"high\"/>");
+	internal_send_meta(ctx, meta);
+
+	sprintf(meta, "<ndi_enabled_streams video=\"true\" audio=\"true\" text=\"true\"/>");
+	internal_send_meta(ctx, meta);
+
+	// "<ndi_identify name=\"\"/>"
+	// "<ndi_failover name=\"\" ip=\"\"/>"
 
 	return 0;
+}
+
+void ndi_recv_close(ndi_recv_context_t ctx) {
+
+	internal_recv_context_t * internal = ctx;
+
+	if (internal->socket_fd) {
+#ifdef _WIN32
+		closesocket(internal->socket_fd);
+#else
+		close(internal->socket_fd);
+#endif
+		internal->socket_fd = 0;
+	}
+}
+
+int ndi_recv_is_connected(ndi_recv_context_t ctx) {
+	internal_recv_context_t * internal = ctx;
+	return internal->socket_fd > 0;
 }
 
 static unsigned char internal_read_u8(void * buffer, int offset) {
@@ -168,8 +213,11 @@ int ndi_recv_wait(ndi_recv_context_t ctx, int timeout_ms) {
 	FD_SET(internal->socket_fd, &internal->read_fds);
 
 	int status = select(internal->socket_fd + 1, &internal->read_fds, NULL, NULL, &tv);
-	if (status <= 0)
+	if (status <= 0) {
+		if (errno == EBADF)
+			ndi_recv_close(ctx);
 		return -1;
+	}
 
 	return 0;
 }
@@ -278,11 +326,7 @@ void ndi_recv_free(ndi_recv_context_t ctx) {
 
 	internal_recv_context_t * internal = ctx;
 
-#ifdef _WIN32
-	closesocket(internal->socket_fd);
-#else
-	close(internal->socket_fd);
-#endif
+	ndi_recv_close(ctx);
 
 	free(ctx);
 }
