@@ -1,4 +1,5 @@
 #include <ndi/recv.h>
+#include <ndi/scramble.h>
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -150,9 +151,9 @@ static void internal_recv(int socket, char * buf, int len) {
 
 static void internal_unscramble(int type2, unsigned char *buf, int len, unsigned int seed) {
 	if (!type2)
-		internal_unscramble_type1(buf, len, seed);
+		ndi_unscramble_type1(buf, len, seed);
 	else
-		internal_unscramble_type2(buf, len, seed);
+		ndi_unscramble_type2(buf, len, seed);
 }
 
 int ndi_recv_wait(ndi_recv_context_t ctx, int timeout_ms) {
