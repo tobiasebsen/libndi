@@ -130,7 +130,7 @@ int ndi_recv_connect(ndi_recv_context_t ctx, const char * host, unsigned short p
 
 	char meta[100];
 
-	sprintf(meta, "<ndi_version text=\"3\" video=\"4\" audio=\"3\" sdk=\"4.5.0\" platform=\"%s\"/>", _platformName);
+	sprintf(meta, "<ndi_version text=\"3\" video=\"4\" audio=\"3\" sdk=\"3.5.1\" platform=\"%s\"/>", _platformName);
 	internal_send_meta(ctx, meta);
 
 	sprintf(meta, "<ndi_video quality=\"high\"/>");
@@ -139,8 +139,9 @@ int ndi_recv_connect(ndi_recv_context_t ctx, const char * host, unsigned short p
 	sprintf(meta, "<ndi_enabled_streams video=\"true\" audio=\"true\" text=\"true\"/>");
 	internal_send_meta(ctx, meta);
 
-	// "<ndi_identify name=\"\"/>"
-	// "<ndi_failover name=\"\" ip=\"\"/>"
+	// <ndi_identify name=\"\"/>
+	// <ndi_failover name=\"\" ip=\"\"/>
+	// <ndi_product long_name=\"\" short_name=\"\" manufacturer=\"\" version=\"1.000.000\" session=\"default\" model_name=\"\" serial=\"\"/>
 
 	return 0;
 }

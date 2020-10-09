@@ -56,6 +56,8 @@ int main(int argc, char* argv[]) {
 	if (ret < 0)
 		return -1;
 
+	ndi_find_free(find_ctx);
+
 	ndi_codec_context_t codec_ctx = ndi_codec_create();
 
 	while (loop_ogl()) {
@@ -103,7 +105,7 @@ int main(int argc, char* argv[]) {
 			break;
 
 		case NDI_DATA_TYPE_METADATA:
-			printf("Chunk data received: %s\n", meta.data);
+			printf("Meta data received: %s\n", meta.data);
 			ndi_recv_free_metadata(&meta);
 			break;
 		}
@@ -127,7 +129,7 @@ int main(int argc, char* argv[]) {
 		redraw_ogl(0);
 	}
 
-	ndi_find_free(find_ctx);
+	ndi_recv_free(recv_ctx);
 
 	exit_ogl();
 
