@@ -2,7 +2,7 @@
 #include <stdio.h>
 
 #include "../common/ogl.h"
-#include "yuv.h"
+#include "../common/yuv.h"
 
 static const char * source_vert_yuv =
 "uniform mat4 u_matrix;\n"

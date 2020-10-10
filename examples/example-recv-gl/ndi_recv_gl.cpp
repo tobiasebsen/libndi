@@ -6,6 +6,7 @@
 #include "../common/ogl.h"
 #include "../common/yuv.h"
 
+
 int main(int argc, char* argv[]) {
 
 	if (init_ogl() <= 0)
@@ -49,18 +50,22 @@ int main(int argc, char* argv[]) {
 	}
 
 	printf("Found source: %s\n", sources[0].name);
-	//glfwSetWindowTitle(window, sources[0].name);
 
 	ndi_recv_context_t recv_ctx = ndi_recv_create();
 	int ret = ndi_recv_connect(recv_ctx, sources[0].ip, sources[0].port);
 	if (ret < 0)
 		return -1;
 
+	ndi_find_free(find_ctx);
+
 	ndi_codec_context_t codec_ctx = ndi_codec_create();
 
 	while (loop_ogl()) {
 
-		glViewport(0, 0, 640, 480);
+		int width, height;
+		size_ogl(0, &width, &height);
+
+		glViewport(0, 0, width, height);
 		glClear(GL_COLOR_BUFFER_BIT);
 		glLoadIdentity();
 
@@ -100,7 +105,7 @@ int main(int argc, char* argv[]) {
 			break;
 
 		case NDI_DATA_TYPE_METADATA:
-			printf("Chunk data received: %s\n", meta.data);
+			printf("Meta data received: %s\n", meta.data);
 			ndi_recv_free_metadata(&meta);
 			break;
 		}
@@ -124,7 +129,7 @@ int main(int argc, char* argv[]) {
 		redraw_ogl(0);
 	}
 
-	ndi_find_free(find_ctx);
+	ndi_recv_free(recv_ctx);
 
 	exit_ogl();
 

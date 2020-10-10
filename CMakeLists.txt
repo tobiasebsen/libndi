@@ -9,13 +9,13 @@ include_directories(
 	include/
 )
 
-if(LINUX)
-	include_directories(
-		/opt/vc/include
-	)
-	link_directories(
-		/opt/vc/lib
-	)
+set(NDI_SOURCES "src/recv.c" "src/scramble.c" "src/codec.c")
+
+
+if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+	include_directories(/opt/vc/include /usr/include)
+	link_directories(/opt/vc/lib)
+	list(APPEND NDI_SOURCES "src/find_avahi.c")
 endif()
 if(APPLE)
 	include_directories(
@@ -24,6 +24,7 @@ if(APPLE)
 	link_directories(
 		/usr/local/lib
 	)
+	list(APPEND NDI_SOURCES "src/find_dnssd.c")
 endif()
 
 link_libraries(
@@ -36,4 +37,5 @@ add_library(ndi
 	src/recv.c
 	src/scramble.c
 	src/codec.c
+	${NDI_SOURCES}
 )
