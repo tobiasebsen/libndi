@@ -2,14 +2,27 @@ cmake_minimum_required(VERSION 3.0)
 
 project(example-recv)
 
+if(APPLE)
+	include_directories(
+		/usr/local/include
+	)
+	link_directories(
+		/usr/local/lib
+	)
+endif()
+
 include_directories(
-	../../include/
+	${CMAKE_CURRENT_SOURCE_DIR}/../../include/
 )
 link_directories(
-	../../lib
+	${CMAKE_CURRENT_SOURCE_DIR}/../../lib/
 )
+
 link_libraries(
-	libndi
+	ndi
+	avcodec
+	avformat
+	avutil
 )
 
 add_executable(example-recv

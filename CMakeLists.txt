@@ -19,10 +19,10 @@ if(LINUX)
 endif()
 if(APPLE)
 	include_directories(
-		/opt/local/include
+		/usr/local/include
 	)
 	link_directories(
-		/opt/local/lib
+		/usr/local/lib
 	)
 endif()
 
@@ -32,7 +32,7 @@ link_libraries(
 	avutil
 )
 
-add_library(libndi
+add_library(ndi
 	src/recv.c
 	src/scramble.c
 	src/codec.c
