@@ -17,10 +17,11 @@ typedef struct {
 ndi_codec_context_t ndi_codec_create();
 void ndi_codec_free(ndi_codec_context_t ctx);
 
-int ndi_codec_open(ndi_codec_context_t ctx, unsigned int fourcc, int width, int height);
+int ndi_codec_open(ndi_codec_context_t ctx, unsigned int fourcc);
 ndi_frame_t ndi_codec_decode(ndi_codec_context_t ctx, ndi_packet_video_t * video);
 void ndi_frame_get_format(ndi_frame_t frame, ndi_video_format_t * format);
 void * ndi_frame_get_data(ndi_frame_t frame, int plane);
+int ndi_frame_get_linesize(ndi_frame_t frame, int plane);
 void ndi_frame_free(ndi_frame_t frame);
 
 #endif // NDI_CODEC_H

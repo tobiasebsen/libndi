@@ -140,6 +140,7 @@ int ndi_recv_connect(ndi_recv_context_t ctx, const char * host, unsigned short p
 	internal_send_meta(ctx, meta);
 
 	// <ndi_identify name=\"\"/>
+	// <ndi_capabilities ntk_ptz="true" ntk_pan_tilt="true" ntk_zoom="true" ntk_iris="false" ntk_white_balance="false" ntk_exposure="false" ntk_record="false" web_control="" ndi_type="NDI"/>
 	// <ndi_failover name=\"\" ip=\"\"/>
 	// <ndi_product long_name=\"\" short_name=\"\" manufacturer=\"\" version=\"1.000.000\" session=\"default\" model_name=\"\" serial=\"\"/>
 
@@ -185,14 +186,15 @@ static unsigned long long internal_read_u64(void * buffer, int offset) {
 	return data[0] | (data[1] << 8) | (data[2] << 16) | (data[3] << 24) | ((unsigned long long)data[4] << 32) | ((unsigned long long)data[5] << 40) | ((unsigned long long)data[6] << 48) | ((unsigned long long)data[7] << 56);
 }
 
-static void internal_recv(int socket, char * buf, int len) {
+static int internal_recv(int socket, char * buf, int len) {
 	int rb = 0;
 	while (rb < len) {
 		int n = recv(socket, buf + rb, len - rb, 0);
 		if (n < 0)
-			return;
+			return -1;
 		rb += n;
 	}
+	return rb;
 }
 
 static void internal_unscramble(int type2, unsigned char *buf, int len, unsigned int seed) {
@@ -243,27 +245,30 @@ int ndi_recv_capture(ndi_recv_context_t ctx, ndi_packet_video_t * video, ndi_pac
 	status = ioctl(internal->socket_fd, FIONREAD, &available);
 #endif
 
-	if (status != 0 || available < 12)
+	if (status != 0 || available < 12) {
 		return -1;
+	}
 
 	char header[12];
 	int len = recv(internal->socket_fd, header, 12, 0);
 	if (len != 12)
 		return -1;
 
-	unsigned short flags = internal_read_u16(header, 0);
-	unsigned char scramble = flags >> 15;
-	unsigned short version = flags & 0x7FFF;
+	unsigned short version = internal_read_u8(header, 0);
+	unsigned char id = internal_read_u8(header, 1);
 	unsigned short packet_type = internal_read_u16(header, 2);
 	unsigned int info_len = internal_read_u32(header, 4);
 	unsigned int data_len = internal_read_u32(header, 8);
 	unsigned int seed = info_len + data_len;
 
+	if (id != 0x80)
+		return -1;
+
 	if (packet_type == NDI_DATA_TYPE_VIDEO && video) {
 
 		unsigned char * info = malloc(info_len);
 		internal_recv(internal->socket_fd, info, info_len);
-		internal_unscramble(version > 2, info, info_len, seed);
+		internal_unscramble(version > 3, info, info_len, seed);
 
 		video->fourcc = internal_read_u32(info, 0);
 		video->width = internal_read_u32(info, 4);
@@ -297,7 +302,7 @@ int ndi_recv_capture(ndi_recv_context_t ctx, ndi_packet_video_t * video, ndi_pac
 		int chunk_len = info_len + data_len;
 		unsigned char * info = malloc(chunk_len);
 		internal_recv(internal->socket_fd, info, chunk_len);
-		internal_unscramble(version > 3, info, chunk_len, seed);
+		internal_unscramble(version > 2, info, chunk_len, seed);
 
 		meta->timecode = internal_read_u64(info, 0);
 		meta->data = malloc(data_len);
