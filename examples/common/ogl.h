@@ -5,6 +5,7 @@
 #include "EGL/egl.h"
 #include "EGL/eglext.h"
 #include "GLES2/gl2.h"
+#define GL_UNPACK_ROW_LENGTH          0x0CF2
 #else
 #include <GL/glew.h>
 #endif
