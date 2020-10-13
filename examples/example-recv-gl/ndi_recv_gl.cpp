@@ -79,7 +79,7 @@ int main(int argc, char* argv[]) {
 		switch (data_type) {
 
 		case NDI_DATA_TYPE_VIDEO:
-			printf("Video data received (%dx%d).\n", video.width, video.height);
+			printf("Video data received (%dx%d %.4s).\n", video.width, video.height, &video.fourcc);
 			frame = ndi_codec_decode(codec_ctx, &video);
 			if (frame) {
 				ndi_frame_get_format(frame, &format);
@@ -88,7 +88,7 @@ int main(int argc, char* argv[]) {
 					int h = i ? format.chroma_height : format.height;
 					glActiveTexture(GL_TEXTURE0 + i);
 					glBindTexture(GL_TEXTURE_2D, texture[i]);
-					//glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, video.width, video.height, GL_LUMINANCE, GL_UNSIGNED_BYTE, ndi_frame_data(frame, 0));
+					glPixelStorei(GL_UNPACK_ROW_LENGTH, ndi_frame_get_linesize(frame, i));
 					glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, w, h, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, ndi_frame_get_data(frame, i));
 					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);

@@ -245,11 +245,16 @@ int ndi_recv_capture(ndi_recv_context_t ctx, ndi_packet_video_t * video, ndi_pac
 	status = ioctl(internal->socket_fd, FIONREAD, &available);
 #endif
 
+	char header[12];
+
 	if (status != 0 || available < 12) {
+		int len = recv(internal->socket_fd, header, available, 0);
+		if (strcmp(header, "_close/>") == 0) {
+			ndi_recv_close(ctx);
+		}
 		return -1;
 	}
 
-	char header[12];
 	int len = recv(internal->socket_fd, header, 12, 0);
 	if (len != 12)
 		return -1;
