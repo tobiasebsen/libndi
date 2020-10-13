@@ -11,10 +11,10 @@ include_directories(
 	../../include/
 )
 link_directories(
-	../../lib
+	../../lib/
 )
 link_libraries(
-	libndi
+	ndi
 )
 
 add_executable(example-find
