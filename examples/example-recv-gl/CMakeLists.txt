@@ -12,15 +12,15 @@ include_directories(
 
 if (LINUX)
 include_directories(/opt/vc/include/)
-link_directories(/opt/vc/lib/)
-link_libraries(GLESv2 EGL)
+link_directories(/opt/vc/lib/ /usr/lib/arm-linux-gnueabihf/)
+link_libraries(bcm_host GLESv2 EGL avahi-client avahi-common)
 endif ()
 
 link_directories(
-	../../lib
+	../../lib/
 )
 link_libraries(
-	libndi
+	ndi
 	avcodec
 	avformat
 	avutil

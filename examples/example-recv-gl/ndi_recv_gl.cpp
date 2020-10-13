@@ -3,19 +3,38 @@
 #include <string.h>
 #include <ndi.h>
 
+#ifdef __arm__
+#include "bcm_host.h"
+#endif
+
 #include "../common/ogl.h"
 #include "../common/yuv.h"
 
 
 int main(int argc, char* argv[]) {
 
-	if (init_ogl() <= 0)
-		return -1;
+	int ret;
 
-	window_ogl(0, 640, 480);
+#ifdef __arm__
+	bcm_host_init();
+#endif
+
+	if ((ret = init_ogl(0)) < 0) {
+		printf("Failed to initialize OpenGL. Error: %d\n", ret);
+		return -1;
+	}
+
+	int width, height;
+	res_ogl(0, &width, &height);
+	printf("Screen #0: %dx%d\n", width, height);
+
+	if ((ret = window_ogl(0, width, height)) < 0) {
+		printf("Failed to create window. Error: %d\n", ret);
+		return -1;
+	}
 
 	glEnable(GL_TEXTURE_2D);
-	glClearColor(1, 0, 0, 1);
+	glClearColor(0, 0, 0, 1);
 
 	GLuint texture[4];
 	glGenTextures(4, texture);
@@ -24,7 +43,11 @@ int main(int argc, char* argv[]) {
 	glewInit();
 #endif
 
-	yuv_init();
+	if (yuv_init() < 0) {
+		printf("Failed to load shader\n");
+		return -1;
+	}
+
 	yuv_bind();
 
 	float matrix[16];
@@ -49,12 +72,14 @@ int main(int argc, char* argv[]) {
 		sources = ndi_find_sources(find_ctx, 5000, &nb_sources);
 	}
 
-	printf("Found source: %s\n", sources[0].name);
+	printf("Found source: %s (%s:%d)\n", sources[0].name, sources[0].ip, sources[0].port);
 
 	ndi_recv_context_t recv_ctx = ndi_recv_create();
-	int ret = ndi_recv_connect(recv_ctx, sources[0].ip, sources[0].port);
-	if (ret < 0)
+	ret = ndi_recv_connect(recv_ctx, sources[0].ip, sources[0].port);
+	if (ret < 0) {
+		printf("Failed to connect to source\n");
 		return -1;
+	}
 
 	ndi_find_free(find_ctx);
 
@@ -114,11 +139,11 @@ int main(int argc, char* argv[]) {
 
 		glUniformMatrix4fv(loc_m, 1, GL_FALSE, &matrix[0]);
 
-		glEnableVertexAttribArray(0);
-		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), vertices);
+		glVertexAttribPointer(loc_p, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), vertices);
+		glEnableVertexAttribArray(loc_p);
 
-		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), tex_coords);
-		glEnableVertexAttribArray(1);
+		glVertexAttribPointer(loc_t, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), tex_coords);
+		glEnableVertexAttribArray(loc_t);
 
 		GLushort indices[] = { 0, 3, 1, 2 };
 		glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, indices);

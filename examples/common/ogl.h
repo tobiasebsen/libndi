@@ -9,11 +9,14 @@
 #include <GL/glew.h>
 #endif
 
-int init_glfw();
-int init_egl();
+int init_glfw(int display_index);
+int init_egl(int display_index);
 
 void exit_glfw();
 void exit_egl();
+
+void res_glfw(int screen_index, int * width, int * height);
+void res_egl(int screen_index, int * width, int * height);
 
 int window_glfw(int screen_index, int width, int height);
 int window_egl(int screen_index, int width, int height);
@@ -30,6 +33,7 @@ void redraw_egl(int window_index);
 #ifdef __arm__
 #define init_ogl	init_egl
 #define exit_ogl	exit_egl
+#define res_ogl		res_egl
 #define window_ogl	window_egl
 #define loop_ogl	loop_egl
 #define size_ogl	size_egl
@@ -37,6 +41,7 @@ void redraw_egl(int window_index);
 #else
 #define init_ogl	init_glfw
 #define exit_ogl	exit_glfw
+#define res_ogl		res_glfw
 #define window_ogl	window_glfw
 #define loop_ogl	loop_glfw
 #define size_ogl	size_glfw

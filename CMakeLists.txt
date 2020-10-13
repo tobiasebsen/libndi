@@ -18,8 +18,12 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 	list(APPEND NDI_SOURCES "src/find_avahi.c")
 endif()
 if(APPLE)
-	include_directories(/opt/local/include)
-	link_directories(/opt/local/lib)
+	include_directories(
+		/usr/local/include
+	)
+	link_directories(
+		/usr/local/lib
+	)
 	list(APPEND NDI_SOURCES "src/find_dnssd.c")
 endif()
 
@@ -29,6 +33,9 @@ link_libraries(
 	avutil
 )
 
-add_library(libndi
+add_library(ndi
+	src/recv.c
+	src/scramble.c
+	src/codec.c
 	${NDI_SOURCES}
 )

@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <errno.h>
 
 #ifdef _WIN32
 #include <ws2tcpip.h>
@@ -26,6 +27,8 @@ const char * _platformName = "LINUX";
 #else
 const char * _platformName = "UNKNOWN";
 #endif
+
+extern int errno;
 
 typedef struct {
 	int socket_fd;

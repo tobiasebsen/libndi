@@ -1,3 +1,9 @@
+# Files without extension
+# (first ignore all, then all dirs and files with extension)
+*
+!*.*
+!*/
+
 # MSVC
 .vs/
 
