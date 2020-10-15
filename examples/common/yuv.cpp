@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "../common/ogl.h"
 #include "../common/yuv.h"
@@ -57,6 +58,11 @@ static struct {
 	GLint tex_u;
 	GLint tex_v;
 } location;
+static GLuint texture[3];
+static float matrix[4][4];
+static GLfloat vertices[4][3];
+static GLfloat tex_coords[] = { 0, 0, 1, 0, 1, 1, 0, 1 };
+
 
 int yuv_init() {
 	int status = GL_FALSE;
@@ -110,6 +116,11 @@ int yuv_init() {
 	location.tex_y = glGetUniformLocation(program, "tex_y");
 	location.tex_u = glGetUniformLocation(program, "tex_u");
 	location.tex_v = glGetUniformLocation(program, "tex_v");
+    
+    glGenTextures(3, texture);
+    
+    memset(matrix, 0, sizeof(matrix));
+    memset(vertices, 0, sizeof(vertices));
 
 	return 0;
 }
@@ -118,30 +129,68 @@ void yuv_bind() {
 	glUseProgram(program);
 }
 
-int yuv_get_uniform(const char * name) {
-	return glGetUniformLocation(program, name);
+void yuv_view(float left, float right, float top, float bottom, float near, float far) {
+    matrix[0][0] = 2.0f / (right - left);
+    matrix[1][1] = 2.0f / (top - bottom);
+    matrix[2][2] = -2.0f / (far - near);
+    matrix[3][0] = -(right + left) / (right - left);
+    matrix[3][1] = -(top + bottom) / (top - bottom);
+    matrix[3][2] = -(far + near) / (far - near);
+    matrix[3][3] = 1;
 }
 
-int yuv_get_attrib(const char * name) {
-	return glGetAttribLocation(program, name);
+void yuv_data(int plane, unsigned char * data, int width, int height, int linesize) {
+    glActiveTexture(GL_TEXTURE0 + plane);
+    glBindTexture(GL_TEXTURE_2D, texture[plane]);
+#ifdef GL_UNPACK_ROW_LENGTH
+    glPixelStorei(GL_UNPACK_ROW_LENGTH, linesize);
+#else
+    width = linesize;
+#endif
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, width, height, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, data);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-void yuv_textures(int tex_y, int tex_u, int tex_v) {
-	//glUniformMatrix4fv(loc_m, 1, GL_FALSE, &matrix[0][0]);
+void yuv_draw(float x, float y, float width, float height) {
 
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, tex_y);
-	glUniform1i(location.tex_y, 0);
+    glUniformMatrix4fv(location.mtx, 1, GL_FALSE, &matrix[0][0]);
 
-	glActiveTexture(GL_TEXTURE1);
-	glBindTexture(GL_TEXTURE_2D, tex_u);
-	glUniform1i(location.tex_u, 1);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, texture[0]);
+    glUniform1i(location.tex_y, 0);
+    
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, texture[1]);
+    glUniform1i(location.tex_u, 1);
+    
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, texture[2]);
+    glUniform1i(location.tex_v, 2);
 
-	glActiveTexture(GL_TEXTURE2);
-	glBindTexture(GL_TEXTURE_2D, tex_v);
-	glUniform1i(location.tex_v, 2);
+    glActiveTexture(GL_TEXTURE0);
+    
+    vertices[0][0] = x;
+    vertices[0][1] = y;
+    vertices[1][0] = x + width;
+    vertices[1][1] = y;
+    vertices[2][0] = x + width;
+    vertices[2][1] = y + height;
+    vertices[3][0] = x;
+    vertices[3][1] = y + height;
 
-	glActiveTexture(GL_TEXTURE0);
+    glVertexAttribPointer(location.pos, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), &vertices[0][0]);
+    glEnableVertexAttribArray(location.pos);
+    
+    glVertexAttribPointer(location.txc, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), tex_coords);
+    glEnableVertexAttribArray(location.txc);
+    
+    GLushort indices[] = { 0, 3, 1, 2 };
+    glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, indices);
+    
+    glDisableVertexAttribArray(1);
+    glDisableVertexAttribArray(0);
 }
 
 void yuv_unbind() {

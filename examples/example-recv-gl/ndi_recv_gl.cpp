@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <thread>
+#include <list>
 #include <ndi.h>
 
 #ifdef __arm__
@@ -9,6 +11,50 @@
 
 #include "../common/ogl.h"
 #include "../common/yuv.h"
+
+std::list<ndi_packet_video_t*> _queue;
+std::mutex _mutex;
+
+void recv_thread(ndi_recv_context_t recv_ctx) {
+
+    ndi_packet_video_t video;
+    ndi_packet_audio_t audio;
+    ndi_packet_metadata_t meta;
+
+    while (ndi_recv_is_connected(recv_ctx)) {
+        
+        int data_type = ndi_recv_capture(recv_ctx, &video, &audio, &meta, 1000);
+        switch (data_type) {
+                
+            case NDI_DATA_TYPE_VIDEO:
+                //printf("Video data received (%dx%d %.4s).\n", video.width, video.height, (char*)&video.fourcc);
+            {
+                ndi_packet_video_t * clone = (ndi_packet_video_t*)malloc(sizeof(ndi_packet_video_t));
+                memcpy(clone, &video, sizeof(ndi_packet_video_t));
+                _mutex.lock();
+                while (_queue.size() > 2) {
+                    ndi_packet_video_t * v = _queue.back();
+                    _queue.pop_back();
+                    ndi_recv_free_video(v);
+                    free(v);
+                }
+                _queue.push_back(clone);
+                _mutex.unlock();
+            }
+                break;
+                
+            case NDI_DATA_TYPE_AUDIO:
+                //printf("Audio data received (%d samples).\n", audio.num_samples);
+                ndi_recv_free_audio(&audio);
+                break;
+                
+            case NDI_DATA_TYPE_METADATA:
+                printf("Meta data received: %s\n", meta.data);
+                ndi_recv_free_metadata(&meta);
+                break;
+        }
+    }
+}
 
 
 int main(int argc, char* argv[]) {
@@ -19,6 +65,7 @@ int main(int argc, char* argv[]) {
 	bcm_host_init();
 #endif
 
+    // Initialize OpenGL
 	if ((ret = init_ogl(0)) < 0) {
 		printf("Failed to initialize OpenGL. Error: %d\n", ret);
 		return -1;
@@ -28,6 +75,7 @@ int main(int argc, char* argv[]) {
 	res_ogl(0, &width, &height);
 	printf("Screen #0: %dx%d\n", width, height);
 
+    // Create Window
 	if ((ret = window_ogl(0, width, height)) < 0) {
 		printf("Failed to create window. Error: %d\n", ret);
 		return -1;
@@ -36,35 +84,20 @@ int main(int argc, char* argv[]) {
 	glEnable(GL_TEXTURE_2D);
 	glClearColor(0, 0, 0, 1);
 
-	GLuint texture[4];
-	glGenTextures(4, texture);
-
 #ifndef __arm__
 	glewInit();
 #endif
 
+    // Load YUV shader
 	if (yuv_init() < 0) {
-		printf("Failed to load shader\n");
+		printf("Failed to load YUV shader\n");
 		return -1;
 	}
 
 	yuv_bind();
 
-	float matrix[16];
-	GLfloat vertices[] = { 0, 0, 0, 1920, 0, 0, 1920, 1080, 0, 0, 1080, 0 };
-	GLfloat tex_coords[] = { 0, 0, 1, 0, 1, 1, 0, 1 };
-
-	memset(matrix, 0, sizeof(matrix));
-	orth_ogl(&matrix[0], 0, 1920, 0, 1080, -1, 1);
-
-	int loc_m = yuv_get_uniform("u_matrix");
-	int loc_p = yuv_get_attrib("a_position");
-	int loc_t = yuv_get_attrib("a_texcoord");
-
-	//
-
+	// NDI find source
 	ndi_find_context_t find_ctx = ndi_find_create();
-
 	ndi_source_t  * sources = NULL;
 	int nb_sources = 0;
 	while (!nb_sources) {
@@ -74,17 +107,25 @@ int main(int argc, char* argv[]) {
 
 	printf("Found source: %s (%s:%d)\n", sources[0].name, sources[0].ip, sources[0].port);
 
+    // NDI receive
 	ndi_recv_context_t recv_ctx = ndi_recv_create();
 	ret = ndi_recv_connect(recv_ctx, sources[0].ip, sources[0].port);
 	if (ret < 0) {
 		printf("Failed to connect to source\n");
 		return -1;
 	}
+    printf("Connected.\n");
 
 	ndi_find_free(find_ctx);
-
+    
+    std::thread t(recv_thread, recv_ctx);
+    
+    // NDI codec
 	ndi_codec_context_t codec_ctx = ndi_codec_create();
+    ndi_frame_t frame;
+    ndi_video_format_t format;
 
+    // Main loop
 	while (loop_ogl()) {
 
 		int width, height;
@@ -92,69 +133,44 @@ int main(int argc, char* argv[]) {
 
 		glViewport(0, 0, width, height);
 		glClear(GL_COLOR_BUFFER_BIT);
-		glLoadIdentity();
+        glLoadIdentity();
+        
+        // Pop most recent frame off the queue
+        ndi_packet_video_t * video = NULL;
+        if (_queue.size() > 0) {
+            _mutex.lock();
+            video = _queue.front();
+            _queue.pop_front();
+            _mutex.unlock();
+        }
 
-		ndi_packet_video_t video;
-		ndi_packet_audio_t audio;
-		ndi_packet_metadata_t meta;
-		ndi_frame_t frame;
-		ndi_video_format_t format;
+        // Decode video if available
+        if (video != NULL) {
+            frame = ndi_codec_decode(codec_ctx, video);
+            if (frame) {
+                ndi_frame_get_format(frame, &format);
+                for (int i = 0; i < format.num_planes; i++) {
+                    void * data = ndi_frame_get_data(frame, i);
+                    int w = i ? format.chroma_width : format.width;
+                    int h = i ? format.chroma_height : format.height;
+                    int linesize = ndi_frame_get_linesize(frame, i);
+                    yuv_data(i, (unsigned char*)data, w, h, linesize);
+                }
+                ndi_frame_free(frame);
+            }
+            ndi_recv_free_video(video);
+            free(video);
+        }
 
-		int data_type = ndi_recv_capture(recv_ctx, &video, &audio, &meta, 5000);
-		switch (data_type) {
-
-		case NDI_DATA_TYPE_VIDEO:
-			printf("Video data received (%dx%d %.4s).\n", video.width, video.height, &video.fourcc);
-			frame = ndi_codec_decode(codec_ctx, &video);
-			if (frame) {
-				ndi_frame_get_format(frame, &format);
-				for (int i = 0; i < format.num_planes; i++) {
-					int w = i ? format.chroma_width : format.width;
-					int h = i ? format.chroma_height : format.height;
-					glActiveTexture(GL_TEXTURE0 + i);
-					glBindTexture(GL_TEXTURE_2D, texture[i]);
-					glPixelStorei(GL_UNPACK_ROW_LENGTH, ndi_frame_get_linesize(frame, i));
-					glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, w, h, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, ndi_frame_get_data(frame, i));
-					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-					glBindTexture(GL_TEXTURE_2D, 0);
-				}
-				ndi_frame_free(frame);
-			}
-			ndi_recv_free_video(&video);
-			break;
-
-		case NDI_DATA_TYPE_AUDIO:
-			printf("Audio data received (%d samples).\n", audio.num_samples);
-			ndi_recv_free_audio(&audio);
-			break;
-
-		case NDI_DATA_TYPE_METADATA:
-			printf("Meta data received: %s\n", meta.data);
-			ndi_recv_free_metadata(&meta);
-			break;
-		}
-
-		yuv_textures(texture[0], texture[1], texture[2]);
-
-		glUniformMatrix4fv(loc_m, 1, GL_FALSE, &matrix[0]);
-
-		glVertexAttribPointer(loc_p, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), vertices);
-		glEnableVertexAttribArray(loc_p);
-
-		glVertexAttribPointer(loc_t, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), tex_coords);
-		glEnableVertexAttribArray(loc_t);
-
-		GLushort indices[] = { 0, 3, 1, 2 };
-		glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, indices);
-
-		glDisableVertexAttribArray(1);
-		glDisableVertexAttribArray(0);
+        yuv_view(0, width, 0, height, -1, 1);
+        yuv_draw(0, 0, width, height);
 
 		redraw_ogl(0);
 	}
 
-	ndi_recv_free(recv_ctx);
+    ndi_recv_close(recv_ctx);
+    t.join();
+    ndi_recv_free(recv_ctx);
 
 	exit_ogl();
 

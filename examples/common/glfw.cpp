@@ -22,7 +22,7 @@ static int num_windows = 0;
 
 void exit_glfw();
 
-int init_glfw() {
+int init_glfw(int display_index) {
 
 	GLFWmonitor ** monitors;
 
@@ -51,6 +51,10 @@ fail:
 	exit_glfw();
 
 	return -1;
+}
+
+void res_glfw(int screen_index, int * width, int * height) {
+    glfwGetMonitorWorkarea(screens[screen_index].monitor, NULL, NULL, width, height);
 }
 
 int window_glfw(int screen_index, int width, int height) {
@@ -92,7 +96,7 @@ int loop_glfw() {
 
 void size_glfw(int window_index, int * width, int * height) {
 
-	glfwGetWindowSize(windows[window_index].window, width, height);
+    glfwGetFramebufferSize(windows[window_index].window, width, height);
 }
 
 void redraw_glfw(int window_index) {

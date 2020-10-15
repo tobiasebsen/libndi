@@ -5,7 +5,6 @@
 #include "EGL/egl.h"
 #include "EGL/eglext.h"
 #include "GLES2/gl2.h"
-#define GL_UNPACK_ROW_LENGTH          0x0CF2
 #else
 #include <GL/glew.h>
 #endif
@@ -48,6 +47,3 @@ void redraw_egl(int window_index);
 #define size_ogl	size_glfw
 #define redraw_ogl	redraw_glfw
 #endif
-
-
-void orth_ogl(float * matrix, float left, float right, float top, float bottom, float near, float far);

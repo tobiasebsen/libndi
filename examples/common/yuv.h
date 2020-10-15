@@ -3,6 +3,6 @@
 int yuv_init();
 void yuv_bind();
 void yuv_unbind();
-int yuv_get_uniform(const char * name);
-int yuv_get_attrib(const char * name);
-void yuv_textures(int tex_y, int tex_u, int tex_v);
+void yuv_view(float left, float right, float top, float bottom, float near, float far);
+void yuv_data(int plane, unsigned char * data, int width, int height, int linesize);
+void yuv_draw(float x, float y, float width, float height);

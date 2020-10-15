@@ -18,8 +18,6 @@ typedef struct {
 	EGL_DISPMANX_WINDOW_T nativewindow;
 	EGLSurface surface;
 	EGLContext context;
-	int width;
-	int height;
 } EGL_WINDOW_T;
 
 static EGL_SCREEN_T * screens = NULL;
@@ -101,8 +99,6 @@ int window_egl(int screen_index, int width, int height) {
 	EGL_WINDOW_T * window = &windows[window_index];
 
 	window->screen_index = screen_index;
-	window->width = width;
-	window->height = height;
 
 	static const EGLint context_attributes[] =
 	{
@@ -143,8 +139,9 @@ int loop_egl() {
 
 void size_egl(int window_index, int * width, int * height) {
 	EGL_WINDOW_T * window = &windows[window_index];
-	*width = window->width;
-	*height = window->height;
+    EGL_SCREEN_T * screen = &screens[window->screen_index];
+    eglQuerySurface(screen->display, window->surface, EGL_WIDTH, width);
+    eglQuerySurface(screen->display, window->surface, EGL_HEIGHT, height);
 }
 
 void redraw_egl(int window_index) {
@@ -153,6 +150,19 @@ void redraw_egl(int window_index) {
 }
 
 void exit_egl() {
+    
+    for (int i=0; i<num_windows; i++) {
+        EGL_WINDOW_T * window = &windows[i];
+        EGL_SCREEN_T * screen = &screens[window->screen_index];
+        eglDestroySurface(screen->display, window->surface);
+    }
+    free(windows);
+
+    for (int i=0; i<num_screens; i++) {
+        EGL_SCREEN_T * screen = &screens[i];
+        eglTerminate(screen->display);
+    }
+    free(screens);
 }
 
 #endif // __arm__
