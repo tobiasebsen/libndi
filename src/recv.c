@@ -24,6 +24,8 @@ const char * _platformName = "WIN32";
 #endif
 #elif defined __linux__
 const char * _platformName = "LINUX";
+#elif defined __APPLE__
+const char * _platformName = "APPLE";
 #else
 const char * _platformName = "UNKNOWN";
 #endif
@@ -64,7 +66,7 @@ static void internal_write_u64(void * buffer, int offset, unsigned long long v) 
 	}
 }
 
-static void internal_send_meta(ndi_recv_context_t ctx, char * data) {
+static int internal_send_meta(ndi_recv_context_t ctx, char * data) {
 	
 	internal_recv_context_t * internal = ctx;
 	int data_len = strlen(data) + 1;
@@ -85,10 +87,11 @@ static void internal_send_meta(ndi_recv_context_t ctx, char * data) {
 
 cleanup:
 	free(buffer);
+    return 0;
 }
 
-void ndi_recv_send_metadata(ndi_recv_context_t ctx, ndi_packet_metadata_t * meta) {
-	internal_send_meta(ctx, meta->data);
+int ndi_recv_send_metadata(ndi_recv_context_t ctx, ndi_packet_metadata_t * meta) {
+	return internal_send_meta(ctx, meta->data);
 }
 
 int ndi_recv_connect(ndi_recv_context_t ctx, const char * host, unsigned short port) {
@@ -110,6 +113,9 @@ int ndi_recv_connect(ndi_recv_context_t ctx, const char * host, unsigned short p
 	int ret;
 	struct addrinfo hints, *res;
 	memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = IPPROTO_IP;
 	if ((ret = getaddrinfo(host, port_str, &hints, &res)) != 0) {
 		return -1;
 	}
@@ -125,22 +131,21 @@ int ndi_recv_connect(ndi_recv_context_t ctx, const char * host, unsigned short p
 			return -1;
 		}
 	}
-
 	freeaddrinfo(res);
 
-	if (!internal->socket_fd)
+	if (internal->socket_fd <= 0)
 		return -1;
 
 	char meta[100];
 
 	sprintf(meta, "<ndi_version text=\"3\" video=\"4\" audio=\"3\" sdk=\"3.5.1\" platform=\"%s\"/>", _platformName);
-	internal_send_meta(ctx, meta);
+	ret = internal_send_meta(ctx, meta);
 
 	sprintf(meta, "<ndi_video quality=\"high\"/>");
-	internal_send_meta(ctx, meta);
+	ret = internal_send_meta(ctx, meta);
 
 	sprintf(meta, "<ndi_enabled_streams video=\"true\" audio=\"true\" text=\"true\"/>");
-	internal_send_meta(ctx, meta);
+	ret = internal_send_meta(ctx, meta);
 
 	// <ndi_identify name=\"\"/>
 	// <ndi_capabilities ntk_ptz="true" ntk_pan_tilt="true" ntk_zoom="true" ntk_iris="false" ntk_white_balance="false" ntk_exposure="false" ntk_record="false" web_control="" ndi_type="NDI"/>
@@ -189,10 +194,10 @@ static unsigned long long internal_read_u64(void * buffer, int offset) {
 	return data[0] | (data[1] << 8) | (data[2] << 16) | (data[3] << 24) | ((unsigned long long)data[4] << 32) | ((unsigned long long)data[5] << 40) | ((unsigned long long)data[6] << 48) | ((unsigned long long)data[7] << 56);
 }
 
-static int internal_recv(int socket, char * buf, int len) {
+static int internal_recv(int socket, unsigned char * buf, int len) {
 	int rb = 0;
 	while (rb < len) {
-		int n = recv(socket, buf + rb, len - rb, 0);
+		int n = recv(socket, (char*)buf + rb, len - rb, 0);
 		if (n < 0)
 			return -1;
 		rb += n;
@@ -212,8 +217,8 @@ int ndi_recv_wait(ndi_recv_context_t ctx, int timeout_ms) {
 	internal_recv_context_t * internal = ctx;
 
 	struct timeval tv;
-	tv.tv_sec = 0;
-	tv.tv_usec = timeout_ms * 1000;
+	tv.tv_sec = timeout_ms / 1000;
+	tv.tv_usec = (timeout_ms % 1000) * 1000;
 
 	FD_ZERO(&internal->read_fds);
 	FD_SET(internal->socket_fd, &internal->read_fds);
@@ -233,7 +238,7 @@ int ndi_recv_capture(ndi_recv_context_t ctx, ndi_packet_video_t * video, ndi_pac
 	internal_recv_context_t * internal = ctx;
 	int ret;
 
-	ret = ndi_recv_wait(ctx, timeout_ms);
+    ret = ndi_recv_wait(ctx, timeout_ms);
 	if (ret < 0)
 		return -1;
 
@@ -251,7 +256,7 @@ int ndi_recv_capture(ndi_recv_context_t ctx, ndi_packet_video_t * video, ndi_pac
 	char header[12];
 
 	if (status != 0 || available < 12) {
-		int len = recv(internal->socket_fd, header, available, 0);
+		int len = recv(internal->socket_fd, header, available, MSG_PEEK);
 		if (strcmp(header, "_close/>") == 0) {
 			ndi_recv_close(ctx);
 		}
@@ -260,7 +265,7 @@ int ndi_recv_capture(ndi_recv_context_t ctx, ndi_packet_video_t * video, ndi_pac
 
 	int len = recv(internal->socket_fd, header, 12, 0);
 	if (len != 12)
-		return -1;
+		return -2;
 
 	unsigned short version = internal_read_u8(header, 0);
 	unsigned char id = internal_read_u8(header, 1);
@@ -270,7 +275,7 @@ int ndi_recv_capture(ndi_recv_context_t ctx, ndi_packet_video_t * video, ndi_pac
 	unsigned int seed = info_len + data_len;
 
 	if (id != 0x80)
-		return -1;
+		return -3;
 
 	if (packet_type == NDI_DATA_TYPE_VIDEO && video) {
 

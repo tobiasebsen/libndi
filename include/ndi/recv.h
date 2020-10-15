@@ -17,6 +17,6 @@ void ndi_recv_free_video(ndi_packet_video_t * video);
 void ndi_recv_free_audio(ndi_packet_audio_t * audio);
 void ndi_recv_free_metadata(ndi_packet_metadata_t * meta);
 
-void ndi_recv_send_metadata(ndi_recv_context_t ctx, ndi_packet_metadata_t * meta);
+int ndi_recv_send_metadata(ndi_recv_context_t ctx, ndi_packet_metadata_t * meta);
 
 #endif // NDI_RECV_H
