@@ -2,7 +2,7 @@
 #include <EGL/egl.h>
 
 typedef struct {
-	int display_index;
+	int display_id;
 	DISPMANX_DISPLAY_HANDLE_T dispman_display;
 	DISPMANX_UPDATE_HANDLE_T dispman_update;
 	unsigned int width;
@@ -28,7 +28,7 @@ static int num_windows = 0;
 void exit_egl();
 
 
-int init_egl(int display_index) {
+int init_egl(int display_id) {
 
 	int screen_index = num_screens;
 	num_screens++;
@@ -40,15 +40,15 @@ int init_egl(int display_index) {
 
 	EGL_SCREEN_T * screen = &screens[screen_index];
 
-	screen->display_index = display_index;
-	screen->dispman_display = vc_dispmanx_display_open(display_index);
+	screen->display_id = display_id;
+	screen->dispman_display = vc_dispmanx_display_open(display_id);
 
 	DISPMANX_MODEINFO_T info;
 	vc_dispmanx_display_get_info(screen->dispman_display, &info);
 	screen->width = info.width;
 	screen->height = info.height;
 
-	screen->display = eglGetDisplay((EGLNativeDisplayType)screen_index);
+	screen->display = eglGetDisplay((EGLNativeDisplayType)display_id);
 	if (screen->display == EGL_NO_DISPLAY)
 		return -1;
 
@@ -71,7 +71,7 @@ int init_egl(int display_index) {
 	if (result == EGL_FALSE)
 		return -3;
 
-	screen->dispman_update = vc_dispmanx_update_start(display_index);
+	screen->dispman_update = vc_dispmanx_update_start(0);
 
 	eglSwapInterval(screen->display, 1);
 
