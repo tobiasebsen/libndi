@@ -24,6 +24,9 @@ int window_egl(int screen_index, int width, int height);
 int loop_glfw();
 int loop_egl();
 
+void make_current_glfw(int window_index);
+void make_current_egl(int window_index);
+
 void size_glfw(int window_index, int * width, int * height);
 void size_egl(int window_index, int * width, int * height);
 
@@ -36,6 +39,7 @@ void redraw_egl(int window_index);
 #define res_ogl		res_egl
 #define window_ogl	window_egl
 #define loop_ogl	loop_egl
+#define make_current_ogl make_current_egl
 #define size_ogl	size_egl
 #define redraw_ogl	redraw_egl
 #else
@@ -44,6 +48,7 @@ void redraw_egl(int window_index);
 #define res_ogl		res_glfw
 #define window_ogl	window_glfw
 #define loop_ogl	loop_glfw
+#define make_current_ogl make_current_glfw
 #define size_ogl	size_glfw
 #define redraw_ogl	redraw_glfw
 #endif

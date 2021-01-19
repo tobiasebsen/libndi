@@ -1,12 +1,19 @@
-#ifdef __arm__
+#include <stdlib.h>
 #include <EGL/egl.h>
+#if ENABLE_KMS
+#include "kms.h"
+#endif
+#if ENABLE_DMX
+#include "dmx.h"
+#endif
 
 typedef struct {
-	int display_id;
-	DISPMANX_DISPLAY_HANDLE_T dispman_display;
-	DISPMANX_UPDATE_HANDLE_T dispman_update;
-	unsigned int width;
-	unsigned int height;
+	EGLNativeDisplayType displayType;
+#if ENABLE_KMS
+	kms_output output;
+#elif ENABLE_DMX
+	dmx_screen output;
+#endif
 	EGLDisplay display;
 	EGLConfig config;
 	EGLint num_config;
@@ -14,16 +21,19 @@ typedef struct {
 
 typedef struct {
 	int screen_index;
-	DISPMANX_ELEMENT_HANDLE_T dispman_element;
-	EGL_DISPMANX_WINDOW_T nativewindow;
+#if ENABLE_KMS
+	kms_surface srf;
+#elif ENABLE_DMX
+#endif
 	EGLSurface surface;
-	EGLContext context;
+	//EGLContext context;
 } EGL_WINDOW_T;
 
 static EGL_SCREEN_T * screens = NULL;
 static int num_screens = 0;
 static EGL_WINDOW_T * windows = NULL;
 static int num_windows = 0;
+static EGLContext context = EGL_NO_CONTEXT;
 
 void exit_egl();
 
@@ -40,15 +50,14 @@ int init_egl(int display_id) {
 
 	EGL_SCREEN_T * screen = &screens[screen_index];
 
-	screen->display_id = display_id;
-	screen->dispman_display = vc_dispmanx_display_open(display_id);
+#if ENABLE_KMS
+	screen->output = create_output_kms(display_id);
+	screen->displayType = get_display_kms();
+#else
+	screen->displayType = EGL_DEFAULT_DISPLAY;
+#endif
 
-	DISPMANX_MODEINFO_T info;
-	vc_dispmanx_display_get_info(screen->dispman_display, &info);
-	screen->width = info.width;
-	screen->height = info.height;
-
-	screen->display = eglGetDisplay((EGLNativeDisplayType)display_id);
+	screen->display = eglGetDisplay(screen->displayType);
 	if (screen->display == EGL_NO_DISPLAY)
 		return -1;
 
@@ -71,8 +80,6 @@ int init_egl(int display_id) {
 	if (result == EGL_FALSE)
 		return -3;
 
-	screen->dispman_update = vc_dispmanx_update_start(0);
-
 	eglSwapInterval(screen->display, 1);
 
 	return screen_index;
@@ -80,8 +87,9 @@ int init_egl(int display_id) {
 
 void res_egl(int screen_index, int * width, int * height) {
 	EGL_SCREEN_T * screen = &screens[screen_index];
-	*width = screen->width;
-	*height = screen->height;
+#if ENABLE_KMS
+	get_resolution_kms(screen->output, width, height);
+#endif
 }
 
 int window_egl(int screen_index, int width, int height) {
@@ -105,28 +113,28 @@ int window_egl(int screen_index, int width, int height) {
 		EGL_CONTEXT_CLIENT_VERSION, 2,
 		EGL_NONE
 	};
-	window->context = eglCreateContext(screen->display, screen->config, EGL_NO_CONTEXT, context_attributes);
-	if (window->context == EGL_NO_CONTEXT)
-		return -1;
+	if (context == EGL_NO_CONTEXT) {
+		context = eglCreateContext(screen->display, screen->config, EGL_NO_CONTEXT, context_attributes);
+		if (context == EGL_NO_CONTEXT)
+			return -1;
+	}
 
-	VC_RECT_T dst_rect = { 0, 0, (int)width, (int)height };
-	VC_RECT_T src_rect = { 0, 0, (int)(width) << 16, (int)(height << 16) };
-	window->dispman_element = vc_dispmanx_element_add(screen->dispman_update, screen->dispman_display, 0/*layer*/, &dst_rect, 0/*src*/, &src_rect, DISPMANX_PROTECTION_NONE, 0 /*alpha*/, 0/*clamp*/, DISPMANX_NO_ROTATE);
-	if (window->dispman_element <= 0)
-		return -2;
+	NativeWindowType native_window;
 
-	vc_dispmanx_update_submit_sync(screen->dispman_update);
+#if ENABLE_KMS
+	window->srf = create_surface_kms(width, height);
+	native_window = (NativeWindowType)get_native_surface_kms(window->srf);
+#else
+	// TODO
+#endif
 
-	window->nativewindow.element = window->dispman_element;
-	window->nativewindow.width = width;
-	window->nativewindow.height = height;
-	window->surface = eglCreateWindowSurface(screen->display, screen->config, &window->nativewindow, NULL);
+	window->surface = eglCreateWindowSurface(screen->display, screen->config, native_window, NULL);
 	if (window->surface == EGL_NO_SURFACE)
 		return -3;
 
 	EGLBoolean result;
 
-	result = eglMakeCurrent(screen->display, window->surface, window->surface, window->context);
+	result = eglMakeCurrent(screen->display, window->surface, window->surface, context);
 	if (result == EGL_FALSE)
 		return -4;
 
@@ -135,6 +143,12 @@ int window_egl(int screen_index, int width, int height) {
 
 int loop_egl() {
 	return 1;
+}
+
+void make_current_egl(int window_index) {
+	EGL_WINDOW_T * window = &windows[window_index];
+	EGL_SCREEN_T * screen = &screens[window->screen_index];
+	eglMakeCurrent(screen->display, window->surface, window->surface, context);
 }
 
 void size_egl(int window_index, int * width, int * height) {
@@ -146,7 +160,13 @@ void size_egl(int window_index, int * width, int * height) {
 
 void redraw_egl(int window_index) {
 	EGL_WINDOW_T * window = &windows[window_index];
+	EGL_SCREEN_T * screen = &screens[window->screen_index];
 	eglSwapBuffers(screens[window->screen_index].display, window->surface);
+#if ENABLE_KMS
+	int width, height;
+	size_egl(window_index, &width, &height);
+	draw_surface_kms(screen->output, window->srf, width, height);
+#endif
 }
 
 void exit_egl() {
@@ -164,5 +184,3 @@ void exit_egl() {
     }
     free(screens);
 }
-
-#endif // __arm__

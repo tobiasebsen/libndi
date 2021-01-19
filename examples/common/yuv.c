@@ -31,20 +31,37 @@ static const char * source_frag_yuv =
 "uniform sampler2D tex_u;\n"
 "uniform sampler2D tex_v;\n"
 "\n"
+#ifdef __arm__
+"const mediump vec3 offset = vec3(-0.0625, -0.5, -0.5);\n"
+"const mediump vec3 rcoeff = vec3(1.164, 0.000, 1.596);\n"
+"const mediump vec3 gcoeff = vec3(1.164, -0.391, -0.813);\n"
+"const mediump vec3 bcoeff = vec3(1.164, 2.018, 0.000);\n"
+#else
 "const vec3 offset = vec3(-0.0625, -0.5, -0.5);\n"
 "const vec3 rcoeff = vec3(1.164, 0.000, 1.596);\n"
 "const vec3 gcoeff = vec3(1.164, -0.391, -0.813);\n"
 "const vec3 bcoeff = vec3(1.164, 2.018, 0.000);\n"
+#endif
 "\n"
 "void main() {\n"
+#ifdef __arm__
+"    mediump vec3 yuv;\n"
+#else
 "    vec3 yuv;\n"
+#endif
 "    yuv.x = texture2D(tex_y, v_texcoord).r;\n"
 "    yuv.y = texture2D(tex_u, v_texcoord).r;\n"
 "    yuv.z = texture2D(tex_v, v_texcoord).r;\n"
 "    yuv += offset;\n"
+#ifdef __arm__
+"    mediump float r = dot(yuv, rcoeff);\n"
+"    mediump float g = dot(yuv, gcoeff);\n"
+"    mediump float b = dot(yuv, bcoeff);\n"
+#else
 "    float r = dot(yuv, rcoeff);\n"
 "    float g = dot(yuv, gcoeff);\n"
 "    float b = dot(yuv, bcoeff);\n"
+#endif
 "    gl_FragColor = vec4(r, g, b, 1);\n"
 "}\n"
 ;
