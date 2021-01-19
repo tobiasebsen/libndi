@@ -171,43 +171,56 @@ void yuv_data(int plane, unsigned char * data, int width, int height, int linesi
 }
 
 void yuv_draw(float x, float y, float width, float height) {
+	yuv_draw_sub(x, y, width, height, 0, 0, 1.f, 1.f);
+}
 
-    glUniformMatrix4fv(location.mtx, 1, GL_FALSE, &matrix[0][0]);
+void yuv_draw_sub(float x, float y, float width, float height, float sx, float sy, float sw, float sh) {
 
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, texture[0]);
-    glUniform1i(location.tex_y, 0);
-    
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, texture[1]);
-    glUniform1i(location.tex_u, 1);
-    
-    glActiveTexture(GL_TEXTURE2);
-    glBindTexture(GL_TEXTURE_2D, texture[2]);
-    glUniform1i(location.tex_v, 2);
+	glUniformMatrix4fv(location.mtx, 1, GL_FALSE, &matrix[0][0]);
 
-    glActiveTexture(GL_TEXTURE0);
-    
-    vertices[0][0] = x;
-    vertices[0][1] = y;
-    vertices[1][0] = x + width;
-    vertices[1][1] = y;
-    vertices[2][0] = x + width;
-    vertices[2][1] = y + height;
-    vertices[3][0] = x;
-    vertices[3][1] = y + height;
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, texture[0]);
+	glUniform1i(location.tex_y, 0);
 
-    glVertexAttribPointer(location.pos, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), &vertices[0][0]);
-    glEnableVertexAttribArray(location.pos);
-    
-    glVertexAttribPointer(location.txc, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), tex_coords);
-    glEnableVertexAttribArray(location.txc);
-    
-    GLushort indices[] = { 0, 3, 1, 2 };
-    glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, indices);
-    
-    glDisableVertexAttribArray(1);
-    glDisableVertexAttribArray(0);
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, texture[1]);
+	glUniform1i(location.tex_u, 1);
+
+	glActiveTexture(GL_TEXTURE2);
+	glBindTexture(GL_TEXTURE_2D, texture[2]);
+	glUniform1i(location.tex_v, 2);
+
+	glActiveTexture(GL_TEXTURE0);
+
+	vertices[0][0] = x;
+	vertices[0][1] = y;
+	vertices[1][0] = x + width;
+	vertices[1][1] = y;
+	vertices[2][0] = x + width;
+	vertices[2][1] = y + height;
+	vertices[3][0] = x;
+	vertices[3][1] = y + height;
+
+	tex_coords[0][0] = sx;
+	tex_coords[0][1] = sy;
+	tex_coords[1][0] = sx + sw;
+	tex_coords[1][1] = sy;
+	tex_coords[2][0] = sx + sw;
+	tex_coords[2][1] = sy + sh;
+	tex_coords[3][0] = sx;
+	tex_coords[3][1] = sy + sh;
+
+	glVertexAttribPointer(location.pos, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), &vertices[0][0]);
+	glEnableVertexAttribArray(location.pos);
+
+	glVertexAttribPointer(location.txc, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), tex_coords);
+	glEnableVertexAttribArray(location.txc);
+
+	GLushort indices[] = { 0, 3, 1, 2 };
+	glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, indices);
+
+	glDisableVertexAttribArray(1);
+	glDisableVertexAttribArray(0);
 }
 
 void yuv_unbind() {
