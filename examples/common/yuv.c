@@ -78,7 +78,7 @@ static struct {
 static GLuint texture[3];
 static float matrix[4][4];
 static GLfloat vertices[4][3];
-static GLfloat tex_coords[] = { 0, 0, 1, 0, 1, 1, 0, 1 };
+static GLfloat tex_coords[4][2] = { 0, 0, 1, 0, 1, 1, 0, 1 };
 
 
 int yuv_init() {
