@@ -86,8 +86,8 @@ kms_output create_output_kms(int display_index) {
 
 void get_resolution_kms(kms_output o, int * width, int * height) {
 	KMS_OUTPUT_T * output = (KMS_OUTPUT_T*)o;
-	*width = output->connector->modes[0].hdisplay;
-	*height = output->connector->modes[0].vdisplay;
+	*width = output ? output->connector->modes[0].hdisplay : 0;
+	*height = output ? output->connector->modes[0].vdisplay : 0;
 }
 
 kms_surface create_surface_kms(int hdisplay, int vdisplay) {

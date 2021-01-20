@@ -52,6 +52,9 @@ int init_egl(int display_id) {
 
 #if ENABLE_KMS
 	screen->output = create_output_kms(display_id);
+	if (screen->output == NULL)
+		return -1;
+
 	screen->displayType = get_display_kms();
 #else
 	screen->displayType = EGL_DEFAULT_DISPLAY;
@@ -148,19 +151,25 @@ int loop_egl() {
 void make_current_egl(int window_index) {
 	EGL_WINDOW_T * window = &windows[window_index];
 	EGL_SCREEN_T * screen = &screens[window->screen_index];
+	if (screen->display == EGL_NO_DISPLAY || window->surface == EGL_NO_SURFACE)
+		return;
 	eglMakeCurrent(screen->display, window->surface, window->surface, context);
 }
 
 void size_egl(int window_index, int * width, int * height) {
 	EGL_WINDOW_T * window = &windows[window_index];
     EGL_SCREEN_T * screen = &screens[window->screen_index];
-    eglQuerySurface(screen->display, window->surface, EGL_WIDTH, width);
+	if (screen->display == EGL_NO_DISPLAY || window->surface == EGL_NO_SURFACE)
+		return;
+	eglQuerySurface(screen->display, window->surface, EGL_WIDTH, width);
     eglQuerySurface(screen->display, window->surface, EGL_HEIGHT, height);
 }
 
 void redraw_egl(int window_index) {
 	EGL_WINDOW_T * window = &windows[window_index];
 	EGL_SCREEN_T * screen = &screens[window->screen_index];
+	if (screen->display == EGL_NO_DISPLAY || window->surface == EGL_NO_SURFACE)
+		return;
 	eglSwapBuffers(screens[window->screen_index].display, window->surface);
 #if ENABLE_KMS
 	int width, height;
@@ -174,13 +183,15 @@ void exit_egl() {
     for (int i=0; i<num_windows; i++) {
         EGL_WINDOW_T * window = &windows[i];
         EGL_SCREEN_T * screen = &screens[window->screen_index];
-        eglDestroySurface(screen->display, window->surface);
+		if (screen->display != EGL_NO_DISPLAY && window->surface != EGL_NO_SURFACE)
+			eglDestroySurface(screen->display, window->surface);
     }
     free(windows);
 
     for (int i=0; i<num_screens; i++) {
         EGL_SCREEN_T * screen = &screens[i];
-        eglTerminate(screen->display);
+		if (screen->display != EGL_NO_DISPLAY)
+			eglTerminate(screen->display);
     }
     free(screens);
 }
